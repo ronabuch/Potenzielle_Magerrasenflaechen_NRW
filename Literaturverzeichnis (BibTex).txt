@@ -1,0 +1,98 @@
+@inproceedings{beery2021species,
+  author    = {Beery, Sara and Cole, Elijah and Parker, Joseph and Perona, Pietro and Winner, Kevin},
+  title     = {Species Distribution Modeling for Machine Learning Practitioners: A Review},
+  booktitle = {Proceedings of the 2021 ACM SIGCAS Conference on Computing and Sustainable Societies},
+  series    = {COMPASS '21},
+  pages     = {213--225},
+  year      = {2021},
+  publisher = {Association for Computing Machinery},
+  doi       = {10.1145/3460112.3471966}
+}
+
+@article{https://doi.org/10.1890/07-0539.1,
+author = {Cutler, D. Richard and Edwards Jr., Thomas C. and Beard, Karen H. and Cutler, Adele and Hess, Kyle T. and Gibson, Jacob and Lawler, Joshua J.},
+title = {RANDOM FORESTS FOR CLASSIFICATION IN ECOLOGY},
+journal = {Ecology},
+volume = {88},
+number = {11},
+pages = {2783-2792},
+keywords = {additive logistic regression, classification trees, LDA, logistic regression, machine learning, partial dependence plots, random forests, species distribution models},
+doi = {https://doi.org/10.1890/07-0539.1},
+url = {https://esajournals.onlinelibrary.wiley.com/doi/abs/10.1890/07-0539.1},
+eprint = {https://esajournals.onlinelibrary.wiley.com/doi/pdf/10.1890/07-0539.1},
+abstract = {Classification procedures are some of the most widely used statistical methods in ecology. Random forests (RF) is a new and powerful statistical classifier that is well established in other disciplines but is relatively unknown in ecology. Advantages of RF compared to other statistical classifiers include (1) very high classification accuracy; (2) a novel method of determining variable importance; (3) ability to model complex interactions among predictor variables; (4) flexibility to perform several types of statistical data analysis, including regression, classification, survival analysis, and unsupervised learning; and (5) an algorithm for imputing missing values. We compared the accuracies of RF and four other commonly used statistical classifiers using data on invasive plant species presence in Lava Beds National Monument, California, USA, rare lichen species presence in the Pacific Northwest, USA, and nest sites for cavity nesting birds in the Uinta Mountains, Utah, USA. We observed high classification accuracy in all applications as measured by cross-validation and, in the case of the lichen data, by independent test data, when comparing RF to other common classification methods. We also observed that the variables that RF identified as most important for classifying invasive plant species coincided with expectations based on the literature.},
+year = {2007}
+}
+
+@book{kollmann2019renaturierungsoekologie,
+  title     = {Renaturierungsökologie},
+  author    = {Kollmann, Johannes and Kirmer, Anita and Tischew, Sabine and Hölzel, Norbert and Kiehl, Kathrin},
+  year      = {2019},
+  publisher = {Springer Spektrum},
+  address   = {Berlin, Heidelberg},
+  doi       = {10.1007/978-3-662-54913-1}
+}
+
+@online{lanuv2016kalktrockenrasen,
+  author  = {{Landesamt für Natur, Umwelt und Verbraucherschutz Nordrhein-Westfalen}},
+  title   = {6210(*) Naturnahe Kalk-Trockenrasen und deren Verbuschungsstadien (Festuco-Brometalia): Kartieranleitungen in Nordrhein-Westfalen},
+  year    = {2016},
+  url     = {https://methoden.naturschutzinformationen.nrw.de/methoden/de/anleitung/6210},
+  urldate = {2026-07-21}
+}
+
+@article{https://doi.org/10.1111/j.1466-8238.2007.00358.x,
+author = {Lobo, Jorge M. and Jiménez-Valverde, Alberto and Real, Raimundo},
+title = {AUC: a misleading measure of the performance of predictive distribution models},
+journal = {Global Ecology and Biogeography},
+volume = {17},
+number = {2},
+pages = {145-151},
+keywords = {AUC, distribution models, ecological statistics, goodness-of-fit, model accuracy, ROC curve},
+doi = {https://doi.org/10.1111/j.1466-8238.2007.00358.x},
+url = {https://onlinelibrary.wiley.com/doi/abs/10.1111/j.1466-8238.2007.00358.x},
+eprint = {https://onlinelibrary.wiley.com/doi/pdf/10.1111/j.1466-8238.2007.00358.x},
+abstract = {ABSTRACT The area under the receiver operating characteristic (ROC) curve, known as the AUC, is currently considered to be the standard method to assess the accuracy of predictive distribution models. It avoids the supposed subjectivity in the threshold selection process, when continuous probability derived scores are converted to a binary presence–absence variable, by summarizing overall model performance over all possible thresholds. In this manuscript we review some of the features of this measure and bring into question its reliability as a comparative measure of accuracy between model results. We do not recommend using AUC for five reasons: (1) it ignores the predicted probability values and the goodness-of-fit of the model; (2) it summarises the test performance over regions of the ROC space in which one would rarely operate; (3) it weights omission and commission errors equally; (4) it does not give information about the spatial distribution of model errors; and, most importantly, (5) the total extent to which models are carried out highly influences the rate of well-predicted absences and the AUC scores.},
+year = {2008}
+}
+
+@article{olmeda2019eu,
+  title={EU Action plan to maintain and restore to favourable conservation status the habitat type 6210 Semi-natural dry grasslands and scrubland facies on calcareous substrates (Festuco-Brometalia)(* important orchid sites)},
+  author={Olmeda, Concha and {\v{S}}efferov{\'a}, Viera and Underwood, Evelyn and Millan, Luc{\'\i}a and Gil, Teresa and Naumann, Sandra},
+  journal={European Commission Technica l Report},
+  year={2019}
+}
+
+@article{PONIATOWSKI2026e04147,
+title = {Vanishing biodiversity: The creeping degradation of central European calcareous grasslands},
+journal = {Global Ecology and Conservation},
+volume = {67},
+pages = {e04147},
+year = {2026},
+issn = {2351-9894},
+doi = {https://doi.org/10.1016/j.gecco.2026.e04147},
+url = {https://www.sciencedirect.com/science/article/pii/S235198942600096X},
+author = {Dominik Poniatowski and Thomas Fartmann},
+keywords = {, Conservation problem, Grass encroachment, Habitat degradation, Regional biodiversity hotspot, Semi-natural grassland, Species loss},
+abstract = {Calcareous grasslands in Central Europe are among the most species-rich habitats, yet they are undergoing a gradual but pervasive decline in habitat quality despite ongoing conservation efforts. Recent studies indicate that the expansion of Upright Brome (Bromus erectus), driven by climate change, atmospheric nitrogen deposition, and prevailing management practices, is leading to structural and floristic homogenisation. This process reduces bare-soil availability while threatening specialist plants and their associated fungi and animals, including pollinators and herbivorous insects. Traditional late-season mowing has proven insufficient to counter these changes, and current conservation strategies often fail to maintain the structural diversity necessary to sustain biodiversity. To halt the gradual degradation of calcareous grasslands, we argue that conservation practices must be fundamentally reconsidered. Adaptive management approaches – including year-round or temporary grazing, early-season mowing, and prescribed burning – should be implemented to restore habitat heterogeneity and support biodiversity. Timely adoption of such measures, accompanied where possible by regular monitoring, is essential to prevent further biodiversity loss in these valuable ecosystems.}
+}
+
+@article{vassilev2012festuco,
+  author  = {Vassilev, Kiril and Apostolova, Iva and Pedashenko, Hristo},
+  title   = {Festuco-Brometea in Western Bulgaria with an emphasis on Cirsio-Brachypodion pinnati},
+  journal = {Hacquetia},
+  volume  = {11},
+  number  = {2},
+  pages   = {227--248},
+  year    = {2012},
+  doi     = {10.2478/v10028-012-0011-4}
+}
+
+@book{zerbe2009renaturierung,
+  editor    = {Zerbe, Stefan and Wiegleb, Gerhard},
+  title     = {Renaturierung von Ökosystemen in Mitteleuropa},
+  year      = {2009},
+  publisher = {Spektrum Akademischer Verlag},
+  address   = {Heidelberg},
+  doi       = {10.1007/978-3-8274-2161-6}
+}

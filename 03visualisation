@@ -1,0 +1,363 @@
+library(terra)
+library(tmap)
+library(sf)
+
+setwd(".")
+
+#prediction einladen
+pred <- rast("Vis/pred_10m.tif")
+
+#FFH-Gebiete (Typ 6210 und 5130) einladen
+magerrasen <- st_read("Daten/training/magerrasen.gpkg")
+
+## zum Maskieren ##
+#Gewässer, versiegelte Fläche und NRW einladen
+gewaesser <- st_read("Daten/maskieren/gewaesser.gpkg")
+versiegelung <- st_read("Daten/maskieren/versiegelte_flaechen.gpkg")
+nrw <- st_read("Daten/outline/outline_nrw.gpkg")
+
+#Koordinatensystem anpassen
+magerrasen <- st_transform(magerrasen, crs(pred))
+gewaesser <- st_transform(gewaesser, crs(pred))
+versiegelung <- st_transform(versiegelung, crs(pred))
+
+# Maske erstellen
+pred_mask <- mask(pred, vect(gewaesser), inverse = TRUE)
+pred_mask <- mask(pred_mask, vect(versiegelung), inverse = TRUE)
+writeRaster(pred_mask, "Vis/pred_mask.tif", overwrite = TRUE)
+
+
+#Farben definieren
+cols <- c("#333f48", "#4d6243", "#66853e", "#80a83a", "#9acb35")
+
+##########################
+#### Karten erstellen ####
+##########################
+
+tmap_mode("plot")
+
+tmap_options(raster.max_cells = 5e7)
+
+#### ganz NRW ####
+
+karte <-
+  tm_shape(pred_mask) +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.outside.position = "right",
+    legend.width = 7,
+    legend.text.size = 0.8,
+    legend.title.size = 1,
+    frame = TRUE,
+    bg.color = "white"
+  )+
+  tm_raster(
+    col.scale = tm_scale_continuous(
+      values = cols,
+      ticks = seq(0, 1, by = 0.2)
+    ),
+    col.legend = tm_legend(
+      title = "Magerrasen-\nPotenzial",
+      reverse = TRUE
+    )
+  ) +
+  
+  tm_shape(magerrasen) +
+  tm_polygons(
+    fill_alpha = 0,
+    col = "yellow",
+    col_alpha = 0.9,
+    lwd = 0.6
+  )+
+  tm_add_legend(
+    type = "line",
+    col = "yellow",
+    lwd = 2,
+    labels = "FFH-Gebiete\n(LRT 6210\nund 5130)",
+    title = ""
+  )+
+  tm_add_legend(
+    type = "polygons",
+    fill = "white",
+    lwd = 2,
+    labels = "Maskiert",
+    title = ""
+  )+
+  tm_scalebar(
+    breaks = c(0, 20, 40, 60),
+    text.size = 0.8,
+    position = c("right", "bottom")
+  ) +
+  
+  tm_compass(
+    type = "arrow",
+    position = c("left", "top"),
+    size = 2
+  ) +
+  
+  tm_grid(
+    lines = FALSE,
+    labels.inside.frame = FALSE
+  ) +
+  
+  tm_layout(
+    legend.outside = TRUE,
+    frame = TRUE,
+    bg.color = "white"
+  )
+
+
+tmap_save(
+  karte,
+  filename = "Vis/karte_masked_final.png",
+  width = 30,
+  height = 22,
+  units = "cm",
+  dpi = 300
+)
+
+
+#### Lengerich ####
+
+#Ausschnitt festlegen
+ext <- ext(414510, 425060, 5778401, 578895)
+
+#prediction auf Ausschnitt croppen
+pred_crop <- crop(pred_mask, ext)
+
+# Ausdehnung des aktuellen Ausschnitts als Polygon + CRS anpassen
+ausschnitt <- as.polygons(ext(pred_crop))
+crs(ausschnitt) <- crs(pred_crop)
+nrw <- st_transform(nrw, crs(pred_crop))
+ausschnitt <- st_as_sf(as.polygons(ext(pred_crop)))
+st_crs(ausschnitt) <- st_crs(nrw)
+
+
+karte_leng <-
+  tm_shape(pred_crop) +
+  tm_layout(
+    legend.outside = TRUE,
+    legend.outside.position = "right",
+    legend.width = 7,
+    legend.text.size = 0.8,
+    legend.title.size = 1,
+    frame = TRUE,
+    bg.color = "white"
+  )+
+  
+  tm_raster(
+    col.scale = tm_scale_continuous(
+      values = cols,
+      ticks = seq(0, 1, by = 0.2)
+    ),
+    col.legend = tm_legend(
+      title = "Magerrasen-\nPotenzial",
+      reverse = TRUE
+    )
+  ) +
+  
+  tm_shape(magerrasen) +
+  tm_polygons(
+    fill_alpha = 0,
+    col = "yellow",
+    col_alpha = 0.9,
+    lwd = 1
+  ) +
+  tm_add_legend(
+    type = "line",
+    col = "yellow",
+    lwd = 2,
+    labels = "FFH-Gebiete\n(LRT 6210\nund 5130)",
+    title = ""
+  )+
+  tm_add_legend(
+    type = "polygons",
+    fill = "white",
+    lwd = 2,
+    labels = "Maskiert",
+    title = ""
+  )+
+  tm_scalebar(
+    breaks = c(0, 0.5, 1, 1.5),
+    width = 11,
+    allow_clipping = TRUE,
+    text.size = 0.8,
+    position = c("right", "bottom"),
+    bg = TRUE,
+    bg.color = "white",
+    bg.alpha = 1,
+    frame = TRUE,
+    frame.color = "black",
+    frame.lwd = 2,
+    margins = 0.1
+  )+
+  
+  tm_compass(
+    type = "arrow",
+    position = c("left", "top"),
+    size = 2,
+    bg = TRUE,
+    bg.color = "white",
+    bg.alpha = 1,
+    frame = TRUE,
+    frame.color = "black",
+    frame.lwd = 1,
+    margins = 0.1
+  )+
+  
+  tm_grid(
+    lines = FALSE,
+    labels.inside.frame = FALSE
+  ) +
+  
+  tm_layout(
+    legend.outside = TRUE,
+    frame = TRUE,
+    bg.color = "white"
+  )+
+  tm_inset(
+    tm_shape(nrw) +
+      tm_polygons(
+        fill = "#333f48",
+        col = "#333f48"
+      ) +
+      tm_shape(ausschnitt) +
+      tm_borders(
+        col = "#9acb35",
+        lwd = 2
+      ),
+    width = 8,
+    height = 8,
+    position = tm_pos_in("left", "bottom"),
+    frame = FALSE
+  )
+
+
+tmap_save(
+  karte_leng,
+  filename = "Vis/karte_lengerich_masked_final.png",
+  width = 30,
+  height = 22,
+  units = "cm",
+  dpi = 300
+)
+
+
+#### Luftbild mit Flächen > 0.8 ####
+
+# Werte > 0.8 auswählen
+#pred_high <- pred_crop > 0.8
+
+# Raster in Polygone umwandeln
+#pred_poly <- as.polygons(pred_high, dissolve = TRUE)
+
+# Nur die True-Flächen behalten
+#pred_poly <- pred_poly[pred_poly$lyr1 == 1, ]
+
+# als GeoPackage exportieren
+#writeVector(pred_poly, "Daten/outline/pred_values0.8.gpkg", overwrite = TRUE)
+
+values_08 <- st_read("Daten/outline/pred_values0.8.gpkg")
+
+#Satellitenbild einladen
+ortho <- rast("Daten/satellite/stack.tif")
+ortho_rgb <- ortho[[c("B04", "B03", "B02")]]
+
+karte_leng_08 <-
+  tm_shape(ortho_rgb) +
+  tm_rgb() +
+  
+  tm_shape(values_08) +
+  tm_polygons(
+    fill = "#9acb35",
+    fill_alpha = 0.20,
+    col = "#9acb35",
+    col_alpha = 0.20,
+    lwd = 1
+  ) +
+  tm_add_legend(
+    type = "polygons",
+    fill = "#9acb35",
+    lwd = 2,
+    labels = "Vorhersageflächen\n(Eignung > 0.8)",
+    title = ""
+  )+
+  
+  tm_shape(magerrasen) +
+  tm_polygons(
+    fill_alpha = 0,
+    col = "yellow",
+    col_alpha = 0.9,
+    lwd = 1
+  ) +
+  tm_add_legend(
+    type = "lines",
+    col = "yellow",
+    lwd = 2,
+    labels = "FFH-Gebiete\n(LRT 6210 und 5130)",
+    title = ""
+  )+
+  
+  tm_scalebar(
+    breaks = c(0, 0.5, 1, 1.5),
+    width = 11,
+    allow_clipping = TRUE,
+    text.size = 0.8,
+    position = c("right", "bottom"),
+    bg = TRUE,
+    bg.color = "white",
+    bg.alpha = 1,
+    frame = TRUE,
+    frame.color = "black",
+    frame.lwd = 2,
+    margins = 0.1
+  )+
+  
+  tm_compass(
+    type = "arrow",
+    position = c("left", "top"),
+    size = 2,
+    bg = TRUE,
+    bg.color = "white",
+    bg.alpha = 1,
+    frame = TRUE,
+    frame.color = "black",
+    frame.lwd = 1,
+    margins = 0.1
+  )+
+  
+  tm_grid(
+    lines = FALSE,
+    labels.inside.frame = FALSE
+  ) +
+  
+  tm_layout(
+    legend.outside = TRUE,
+    frame = TRUE,
+    bg.color = "white"
+  )+
+  tm_inset(
+    tm_shape(nrw) +
+      tm_polygons(
+        fill = "#333f48",
+        col = "#333f48"
+      ) +
+      tm_shape(ausschnitt) +
+      tm_borders(
+        col = "#9acb35",
+        lwd = 2
+      ),
+    width = 8,
+    height = 8,
+    position = tm_pos_in("left", "bottom"),
+    frame = FALSE
+  )
+
+tmap_save(
+  karte_leng_08,
+  filename = "Vis/karte_lengerich_lubi.png",
+  width = 30,
+  height = 22,
+  units = "cm",
+  dpi = 300
+)

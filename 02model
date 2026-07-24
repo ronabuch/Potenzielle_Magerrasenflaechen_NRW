@@ -1,0 +1,136 @@
+library(terra)
+library(sf)
+library(blockCV)
+library(ranger)
+library(pROC)
+
+setwd(".")
+
+###########################
+### Random Forest Model ###
+###########################
+
+#Prädiktoren einladen
+predictors <- rast("Daten/predictors/predictors.tif")
+
+#Zufallspunkte (aus FFH-Gebieten und peuso-absence) einladen
+trainPoints_ffh <- st_read("Daten/training/Zufall_ffh_predictor_sf_new.gpkg")
+trainPoints_absence <- st_read("Daten/training/Zufall_absence_predictor_5000_sf_new.gpkg")
+
+#Zufallspunkte zu einem Datensatz kombinieren
+trainData_sf <- rbind(trainPoints_ffh, trainPoints_absence)
+
+#Prädiktornamen definieren
+predictor_names <- names(predictors)
+
+#Anpassungen vornehmen
+trainData <- st_drop_geometry(trainData_sf) #Geometrie entfernen
+trainData <- trainData[complete.cases(trainData[,predictor_names]),] #noData entfernen
+trainData$magerrasen <- as.factor(trainData$magerrasen)
+trainData_sf$magerrasen <- as.factor(trainData_sf$magerrasen)
+
+###########################
+##### Kreuzvalidierung ####
+###########################
+
+#### Räumlich blockierte Kreuzvalidierung ####
+folds1000 <- cv_spatial(x = trainData_sf, column = "magerrasen", r = predictors,
+  size = 1000, k = 5,  hexagon = TRUE)
+
+# Klasse 1 = ja_magerrasen (positiv_event)
+trainData_sf$magerrasen <- relevel(trainData_sf$magerrasen,
+                                   ref = "nein_magerrasen")
+
+
+#### AUC pro fold ####
+auc_values <- numeric(length(folds1000$folds_list))
+
+for (i in seq_along(folds1000$folds_list)) {
+  
+  train_idx <- folds1000$folds_list[[i]][[1]]
+  test_idx  <- folds1000$folds_list[[i]][[2]]
+  
+  train <- trainData_sf[train_idx, ]
+  test  <- trainData_sf[test_idx, ]
+  
+  rf <- ranger(
+    magerrasen ~ . - PolyID,
+    data = st_drop_geometry(train),
+    probability = TRUE,
+    num.trees = 500,
+    importance = "permutation"
+  )
+  
+  pred <- predict(rf, data = st_drop_geometry(test))
+  
+  prob <- pred$predictions[, "ja_magerrasen"]
+  
+  roc_obj <- roc(
+    response = test$magerrasen,
+    predictor = prob,
+    levels = c("nein_magerrasen", "ja_magerrasen"),
+    direction = "<"
+  )
+  
+  auc_values[i] <- as.numeric(auc(roc_obj))
+  
+  cat("Fold", i, "AUC:", auc_values[i], "\n")
+}
+
+# Ergebnis der Kreuzvalidierung
+mean_auc <- mean(auc_values)
+sd_auc   <- sd(auc_values)
+
+mean_auc #0.9861657
+sd_auc #0.00199484
+
+################################
+##### RF Modell trainieren #####
+################################
+
+# Modell auf allen Daten trainieren
+final_rf <- ranger(
+  magerrasen ~ . -PolyID,
+  data = st_drop_geometry(trainData_sf),
+  probability = TRUE,
+  num.trees = 500,
+  importance = "permutation"
+)
+
+#Variable importance
+sort(final_rf$variable.importance, decreasing = TRUE)
+#litho_id       slope          solar_mean     Bodengruppe_ID dryness 
+#0.117473590    0.075861832    0.070670638    0.069343137    0.055364010 
+#kf              rain_mean     nfk            dic            twi 
+#0.047613609    0.045830443    0.044856804    0.044344745    0.036179370 
+#bodenfeuchte   tie            Bodenart_ID    sw             aspect 
+#0.028183309    0.025029160    0.023068028    0.021156326    0.014701988 
+#gw 
+#0.008720481 
+
+final_rf
+#Type:                             Probability estimation 
+#Number of trees:                  500 
+#Sample size:                      10027 
+#Number of independent variables:  16 
+#Mtry:                             4 
+#Target node size:                 10 
+#Variable importance mode:         permutation 
+#Splitrule:                        gini 
+#OOB prediction error (Brier s.):  0.02451022 
+
+saveRDS(final_rf,file="Daten/model/final_rf2.RDS")
+
+######################
+##### prediction #####
+######################
+
+predictionfinal <- terra::predict(
+  predictors,
+  final_rf,
+  fun = function(model, data) {
+    predict(model, data)$predictions[, "ja_magerrasen"]
+  },
+  filename = "Vis/pred_10m.tif",
+  overwrite = TRUE
+)

@@ -1,0 +1,874 @@
+setwd(".")
+
+library(sf)
+library(terra)
+library(dplyr)
+library(parallel)
+library(whitebox)
+
+##############################################
+################# Bodenkarte #################
+##############################################
+
+#Bodenkarte
+Boden<- st_read("C:Daten/BK50.shp")
+
+#saveRDS(boden_klein, "daten/bk50_predictors.rds")
+
+#st_write(boden_klein,
+         "daten/bk50_subset.shp",
+         delete_layer = TRUE)
+
+
+table(Boden$typ_text)
+
+Boden$Bodengruppe <- NA
+
+Boden$Bodengruppe[grepl("Braunerde", Boden$typ_text)] <- "Braunerde"
+Boden$Bodengruppe[grepl("Parabraunerde", Boden$typ_text)] <- "Parabraunerde"
+Boden$Bodengruppe[grepl("Pseudogley", Boden$typ_text)] <- "Pseudogley"
+Boden$Bodengruppe[grepl("Gley", Boden$typ_text)] <- "Gley"
+Boden$Bodengruppe[grepl("Podsol", Boden$typ_text)] <- "Podsol"
+Boden$Bodengruppe[grepl("Rendzina", Boden$typ_text)] <- "Rendzina"
+Boden$Bodengruppe[grepl("Kolluvisol", Boden$typ_text)] <- "Kolluvisol"
+Boden$Bodengruppe[grepl("Moor", Boden$typ_text)] <- "Moor"
+Boden$Bodengruppe[grepl("Regosol|Syrosem", Boden$typ_text)] <- "Regosol"
+Boden$Bodengruppe[grepl("Pelosol", Boden$typ_text)] <- "Pelosol"
+Boden$Bodengruppe[grepl("Ranker", Boden$typ_text)] <- "Ranker"
+Boden$Bodengruppe[grepl("Vega|Auengley", Boden$typ_text)] <- "Auenboden"
+
+##############################
+# Moore
+Boden$Bodengruppe[grepl("Niedermoor|Hochmoor|Übergangs|moorgley|Moor", Boden$typ_text, ignore.case = TRUE)] <- "Moor"
+
+Boden$Bodengruppe[grepl("Gley|Nassgley|Hanggley|Kalkgley|Humusgley", Boden$typ_text)] <- "Gley"
+
+# Pseudogleye
+Boden$Bodengruppe[grepl("Hangpseudogley|Auenpseudogley", Boden$typ_text)] <- "Pseudogley"
+
+Boden$Bodengruppe[grepl("Braunerde|Humusbraunerde", Boden$typ_text)] <- "Braunerde"
+
+Boden$Bodengruppe[grepl("Parabraunerde|Humusparabraunerde", Boden$typ_text)] <- "Parabraunerde"
+
+Boden$Bodengruppe[grepl("Podsol", Boden$typ_text)] <- "Podsol"
+
+Boden$Bodengruppe[grepl("Rendzina|Pararendzina|Terra_rossa", Boden$typ_text)] <- "Rendzina"
+
+Boden$Bodengruppe[grepl("Kolluvisol", Boden$typ_text)] <- "Kolluvisol"
+
+Boden$Bodengruppe[grepl("Pelosol", Boden$typ_text)] <- "Pelosol"
+
+Boden$Bodengruppe[grepl("Ranker|Skeletthumusboden", Boden$typ_text)] <- "Ranker"
+
+Boden$Bodengruppe[grepl("Regosol|Syrosem|Rigosol|Lockersyrosem|Rambla|Lockerregosol", Boden$typ_text)] <- "Regosol"
+
+Boden$Bodengruppe[grepl("Auengley|Vega", Boden$typ_text)] <- "Auenboden"
+
+Boden$Bodengruppe[grepl("Plaggenesch", Boden$typ_text)] <- "Plaggenesch"
+
+Boden$Bodengruppe[grepl("Tschernosem", Boden$typ_text)] <- "Tschernosem"
+
+# Anthropogene Böden
+Boden$Bodengruppe[grepl("Aufschüttung|Tiefumbruchboden|Deckkulturboden|Fehnkultur", Boden$typ_text)] <- "Anthropogen"
+
+# Seltene Einzelfälle
+Boden$Bodengruppe[grepl("Paternia", Boden$typ_text)] <- "Sonstige"
+
+unique(Boden$typ_text[is.na(Boden$Bodengruppe)])
+sum(is.na(Boden$typ_text))
+
+unique(Boden$typ_text[is.na(Boden$Bodengruppe)])
+
+#####################
+#Boden$Bodengruppe_ID <- as.numeric(as.factor(Boden$Bodengruppe))
+#table(Boden$Bodengruppe_ID)
+
+#table(Boden$art_text)
+#Boden$Bodenart_ID <- as.numeric(as.factor(Boden$art_text))
+#table(Boden$Bodenart_ID)
+
+#boden_BodentypBodenart<- Boden %>%
+#  select(art_text, typ_text, Bodengruppe_ID, Bodenart_ID)
+
+#st_write(boden_BodentypBodenart,
+#         "daten/boden_BodentypBodenart.shp",
+#         delete_layer = TRUE)
+
+boden_klein_nurID <- Boden %>%
+  select(dic,tie, sw, nfk, kf, gw, Bodengruppe_ID, Bodenart_ID)
+
+st_write(boden_klein_nurID,
+"daten/bk50_subset_nurID.shp",
+delete_layer = TRUE)
+
+##### als Rasterdaten
+
+boden_klein_nurID<- st_read("daten/bk50_subset_nurID.shpboden_klein_nurID")
+
+Boden_vect <- vect(boden_klein_nurID)
+
+ref <- rast(
+  ext(Boden_vect),
+  resolution = 10,
+  crs = crs(Boden_vect)
+)
+
+gw_raster <- rasterize(
+  Boden_vect,
+  ref,
+  field = "gw"
+)
+
+gw_raster  <- rasterize(Boden_vect, ref, field="gw")
+nfk_raster <- rasterize(Boden_vect, ref, field="nfk")
+dic_raster <- rasterize(Boden_vect, ref, field="dic")
+tie_raster <- rasterize(Boden_vect, ref, field="tie")
+sw_raster <- rasterize(Boden_vect, ref, field="sw")
+kf_raster <- rasterize(Boden_vect, ref, field="kf")
+Bodengruppe_ID_raster <- rasterize(Boden_vect, ref, field="Bodengruppe_ID")
+Bodenart_ID_raster <- rasterize(Boden_vect, ref, field="Bodenart_ID")
+
+writeRaster(gw_raster, "Daten/BK50/gw.tif", overwrite = TRUE)
+writeRaster(nfk_raster, "Daten/BK50/nfk.tif", overwrite = TRUE)
+writeRaster(dic_raster, "Daten/BK50/dic.tif", overwrite = TRUE)
+writeRaster(tie_raster, "Daten/BK50/tie.tif", overwrite = TRUE)
+writeRaster(sw_raster, "Daten/BK50/sw.tif", overwrite = TRUE)
+writeRaster(kf_raster, "Daten/BK50/kf.tif", overwrite = TRUE)
+writeRaster(Bodengruppe_ID_raster, "Daten/BK50/Bodengruppe_ID.tif", overwrite = TRUE)
+writeRaster(Bodenart_ID_raster, "Daten/BK50/Bodenart_ID.tif", overwrite = TRUE)
+
+#######################
+##### FFH-Gebiete #####
+#######################
+
+gpkg <- magerrasen[, c("localName", "geometry")]
+
+st_write(
+  magerrasen_gpkg,
+  "daten/magerrasen_trainingsflaechen.gpkg",
+  delete_dsn = TRUE
+)
+
+test <- st_read("Daten/magerrasen_trainingsflaechen.gpkg")
+
+class(test)
+plot(st_geometry(test))
+
+############################################
+########### Sonneneinstrahlung #############
+############################################
+
+#Sonneneinstrahlung einladen und Verbinden
+
+filesncdwd <- list.files("Daten/DWD_data/DWD_Sonneneinstrahlung_DE_2020-2015",
+                    pattern = "\\.nc$",
+                    full.names = TRUE)
+
+rasters <- lapply(filesncdwd, rast)
+
+solar_stack <- rast(rasters)
+
+ref <- rasters[[1]]
+rasters_aligned <- lapply(rasters, function(x) {
+  resample(x, ref, method = "bilinear")
+})
+
+
+solar_stack <- rast(rasters_aligned)
+solar_mean <- app(solar_stack, mean, na.rm = TRUE)
+
+writeRaster(solar_mean,
+            "Daten/DWD_data/solar_mean.tif",
+            overwrite = TRUE)
+
+
+######################################
+########### Niederschlag #############
+######################################
+
+files <- filesniederschlag
+
+ref <- rast(files[1])
+
+out <- list()
+
+for (i in seq_along(files)) {
+  
+  r <- rast(files[i])
+  
+  r2 <- project(r, ref)
+  
+  out[[i]] <- r2
+  
+  print(i)
+}
+
+rain_stack <- rast(out)
+
+
+rain_mean <- app(rain_stack, mean, na.rm = TRUE)
+
+writeRaster(
+  rain_mean,
+  "Daten/DWD_data/niederschlag_mean.tif",
+  overwrite = TRUE
+)
+
+
+####################################
+########### Temperatur #############
+####################################
+
+
+sun200 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2020_v6-0_de.nc")
+sun201 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2020_v6-1_de.nc")
+sun210 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2021_v6-0_de.nc")
+sun211 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2021_v6-1_de.nc")
+sun220 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2022_v6-0_de.nc")
+sun221 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2022_v6-1_de.nc")
+sun230 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2023_v6-0_de.nc")
+sun250 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2025_v6-0_de.nc")
+sun251 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2025_v6-1_de.nc")
+sun260 <- rast("Daten/DWD_data/DWD_meanTemperatur_DE_2026-2020/tas_hyras_1_2026_v6-0_de.nc")
+
+boden_vect <- vect(Boden)
+boden_proj <- project(boden_vect, crs(sun200))
+
+sun200_nrw <- mask(
+  crop(sun200, boden_proj),
+  boden_proj
+)
+
+sun201_nrw <- mask(
+  crop(sun201, boden_proj),
+  boden_proj
+)
+sun210_nrw <- mask(
+  crop(sun210, boden_proj),
+  boden_proj
+)
+sun211_nrw <- mask(
+  crop(sun211, boden_proj),
+  boden_proj
+)
+crs(sun211)
+
+sun220_nrw <- mask(
+  crop(sun220, boden_proj),
+  boden_proj
+)
+sun221_nrw <- mask(
+  crop(sun221, boden_proj),
+  boden_proj
+)
+sun230_nrw <- mask(
+  crop(sun230, boden_proj),
+  boden_proj
+)
+sun250_nrw <- mask(
+  crop(sun250, boden_proj),
+  boden_proj
+)
+sun251_nrw <- mask(
+  crop(sun251, boden_proj),
+  boden_proj
+)
+sun260_nrw <- mask(
+  crop(sun260, boden_proj),
+  boden_proj
+)
+
+sun_Stack<- c(sun200_nrw, sun201_nrw, sun210_nrw, sun211_nrw, sun220_nrw, sun221_nrw, sun230_nrw, sun250_nrw, sun251_nrw, sun260_nrw)
+temp_mean <- app(sun_Stack, mean, na.rm = TRUE)
+
+writeRaster(
+  temp_mean,
+  "Daten/DWD_data/temp_mean.tif",
+  overwrite = TRUE
+)
+
+#### Auf NRW zuschneiden ####
+
+rasters_nrw <- lapply(rasters, function(r) {
+
+  boden_proj <- project(boden_vect, crs(r))
+
+  mask(
+    crop(r, boden_proj),
+    boden_proj
+  )
+
+})
+
+for(i in seq_along(rasters_nrw)) {
+  
+  writeRaster(
+    rasters_nrw[[i]],
+    paste0("Daten/Temperatur_NRW/temp_", i, ".tif"),
+    overwrite = TRUE
+  )
+  
+}
+
+filestemp <- list.files("Daten/DWD_meanTemperatur_DE_2026-2020",
+                         pattern = "\\.nc$",
+                         full.names = TRUE)
+
+boden_vect <- vect(Boden)
+bodenUmriss <- project(boden_vect, filestemp)
+files_temp_crop <- crop(filestemp, bodenUmriss)
+files_temp_masked <- mask(files_temp_crop, bodenUmriss)
+
+rasters <- lapply(filestemp, rast)
+
+temp_stack <- rast(rasters)
+
+ref <- rasters[[1]]
+rasters_aligned <- lapply(rasters, function(x) {
+  resample(x, ref, method = "bilinear")
+})
+
+solar_stack <- rast(rasters_aligned)
+solar_mean <- app(solar_stack, mean, na.rm = TRUE)
+
+writeRaster(solar_mean,
+            "Daten/DWD_data/solar_mean.tif",
+            overwrite = TRUE)
+
+##############################################################
+######## NIEDERSCHLAG UND SONNENEINSTRAHLUNG resample ######## 
+##############################################################
+
+solar <- rast("DWD_Sonneneinstrahlung_DE_2020-2015/solar_mean.tif")
+rain <- rast("DWD_Niederschlag_DE_2026-2020/niederschlag_mean.tif")
+
+res(solar) #5x5 km
+res(rain) # 1x1 km
+
+template_sol <- rast(ext = ext(solar), resolution = 10, crs = crs(solar))
+solar_10m <- resample(solar, template_sol, method = "bilinear")
+writeRaster(solar_10m, "DWD_data/solar_10m.tif", overwrite = TRUE)
+
+template_rain <- rast(ext = ext(rain), resolution = 10, crs = crs(rain))
+rain_10m <- resample(rain, template_rain, method = "bilinear")
+writeRaster(rain_10m, "DWD_data/rain_10m.tif", overwrite = TRUE)
+
+#############################################
+######## Trockenheitsindex berechnen ######## 
+#############################################
+
+sun <- rast("Daten/DWD_data/solar_mean.tif")
+rain <- rast("Daten/DWD_data/niederschlag_mean.tif")
+
+res(sun)
+res(rain)
+
+ext(sun)
+ext(rain)
+
+crs(sun)
+crs(rain)
+
+e <- ext(3805000, 5005000, 2485000, 3585000)
+
+rain <- crop(rain, e)
+
+##Wenn extend und Auflösung identisch sein sollen: 
+
+rain2 <- resample(rain, sun, method = "bilinear")
+res(rain2)
+ext(rain2)
+
+sun_n <- (sun - global(sun, "min", na.rm=TRUE)[1,1]) /
+  (global(sun, "max", na.rm=TRUE)[1,1] -
+     global(sun, "min", na.rm=TRUE)[1,1])
+
+rain_n <- (rain2 - global(rain2, "min", na.rm=TRUE)[1,1]) /
+  (global(rain2, "max", na.rm=TRUE)[1,1] -
+     global(rain2, "min", na.rm=TRUE)[1,1])
+
+dryness <- sun_n - rain_n
+writeRaster(dryness, "Daten/DWD_data/dryness_index.tif", overwrite = TRUE)
+
+boden_vect <- vect(Boden)
+bodenUmriss <- project(boden_vect, dryness)
+dry_crop <- crop(dryness, bodenUmriss)
+dry_masked <- mask(dry_crop, bodenUmriss)
+
+writeRaster(
+  dry_masked,
+  "Daten/DWD_data/dryness_nrw.tif",
+  overwrite = TRUE
+)
+
+
+ref <- rast(
+  ext(dry_masked),
+  resolution = 10,
+  crs = crs(dry_masked)
+)
+
+dryness_10m <- resample(dry_masked, ref, method = "bilinear")
+res(dryness_10m)
+
+writeRaster(
+  dryness_10m,
+  "Daten/DWD_data/dryness_nrw_10m.tif",
+  overwrite = TRUE
+)
+
+res(dryness_10m)
+
+#############################################
+########### Soil moisture Index #############
+#############################################
+
+files <- list.files(
+  "Daten/Copernicus_SMI/2015-2025",
+  pattern = ".tif$",
+  full.names = TRUE
+)
+
+
+r <- rast(files)
+
+mean_raster <- mean(r)
+
+writeRaster(
+  mean_raster,
+  "Daten/Copernicus_SMI/mean_BodenfeuchteCopernicus.tif",
+  overwrite = TRUE
+)
+
+#######################################
+####### Digitales Geländemodell #######
+#######################################
+
+terraOptions(progress = 3)
+
+#### SCHLEIFE ####
+process_tile_agg <- function(file) {
+  
+  r <- rast(file)
+  r <- aggregate(r, 10)
+  
+  print(file)
+  out_file <- file.path("Daten/DGM_indexes/DGM_10m", basename(file))
+  writeRaster(r, out_file, overwrite = TRUE)
+}
+
+###### für 1 #######
+
+# Alle .tif-Dateien im Ordner auflisten
+files_DGM1 <- list.files(
+  path = "Daten/DGM_indexes/DGM_1",
+  pattern = "\\.tif$",
+  full.names = TRUE
+)
+
+#alles aggregieren auf 10m, rausschreiben
+terraOptions(threads = detectCores() - 1)
+lapply(files_DGM1, process_tile_agg)
+
+###### für 2 #########
+
+# Alle .tif-Dateien im Ordner auflisten
+files_DGM2 <- list.files(
+  path = "Daten/DGM_indexes/DGM_2",
+  pattern = "\\.tif$",
+  full.names = TRUE
+)
+
+#alles aggregieren auf 10m, rausschreiben
+terraOptions(threads = detectCores() - 1)
+lapply(files_DGM2, process_tile_agg)
+
+###### für 3 #########
+
+# Alle .tif-Dateien im Ordner auflisten
+files_DGM3 <- list.files(
+  path = "Daten/DGM_indexes/DGM_3",
+  pattern = "\\.tif$",
+  full.names = TRUE
+)
+
+#alles aggregieren auf 10m, rausschreiben
+terraOptions(threads = detectCores() - 1)
+lapply(files_DGM3, process_tile_agg)
+
+###### für 4 #########
+
+# Alle .tif-Dateien im Ordner auflisten
+files_DGM4 <- list.files(
+  path = "Daten/DGM_indexes/DGM_4",
+  pattern = "\\.tif$",
+  full.names = TRUE
+)
+
+#alles aggregieren auf 10m, rausschreiben
+terraOptions(threads = detectCores() - 1)
+lapply(files_DGM4, process_tile_agg)
+
+
+###### für 5 #########
+
+# Alle .tif-Dateien im Ordner auflisten
+files_DGM5 <- list.files(
+  path = "Daten/DGM_indexes/DGM_5",
+  pattern = "\\.tif$",
+  full.names = TRUE
+)
+
+#alles aggregieren auf 10m, rausschreiben
+terraOptions(threads = detectCores() - 1)
+lapply(files_DGM5, process_tile_agg)
+
+
+#Dann als Moasik, nochmal rausschreiben
+setwd (".")
+
+dgm_10m <- list.files(, pattern = "\\.tif$", full.names = TRUE) # hier werden alle .tif's im working directory gelistet.
+raster_list_dgm <- lapply(dgm_10m, rast) # hier werden alle .tifs gelesen
+rasters_dgm <- sprc(raster_list_dgm) # raster collection daraus erstellen
+merged_raster_dgm <- mosaic(rasters_dgm) # jetzt räumlich zusammenführen
+writeRaster(merged_raster_dgm,"Daten/DGM_indexes/dgm_complete.tif",overwrite=T) # ...und rausschreiben
+
+
+#JETZT SLOPE und ASPECT
+dgm_10m_ges <- rast("Daten/DGM_indexes/dgm_complete.tif")
+
+slope <- terrain(dgm_10m_ges, v = "slope", unit = "degrees")
+aspect <- terrain(dgm_10m_ges, v = "aspect", unit = "degrees")
+# 0° = Nord, 90° = Ost, 180° = Süd, 270° = West
+
+writeRaster(slope, "Daten/DGM_indexes/slope.tif", overwrite = TRUE)
+writeRaster(aspect, "Daten/DGM_indexes/aspect.tif", overwrite = TRUE)
+
+#JETZT TWI BERECHNEN
+wbt_wetness_index(dem = "Daten/DGM_indexes/dgm_complete.tif", output = "Daten/DGM_indexes/NRW_twi_10m.tif")
+
+#D-Infinity Flow Accumulation als SCA
+wbt_d_inf_flow_accumulation(input = "Daten/DGM_indexes/dgm_complete.tif",
+                            output = "Daten/DGM_indexes/sca.tif", out_type = "specific contributing area")
+
+# TWI
+wbt_wetness_index(sca = "Daten/DGM_indexes/sca.tif", slope = "Daten/DGM_indexes/slope.tif", output = "Daten/DGM_indexes/NRW_twi_10m.tif")
+
+##################################
+############ GEOLOGIE ############ 
+##################################
+geo <- st_read("Daten/GK100/GK100_Hauptschichten.shp")
+
+geo_v <- vect(geo)
+
+table(geo_v$LITHOLOG_1)
+
+#Klassen zusammenfassen
+classify_litho <- function(x) {
+  
+  # fehlende Werte
+  if (is.na(x) || x == "") {
+    return(NA_character_)
+  }
+  
+  # 1. Wasser
+  if (grepl("Gewässer", x, ignore.case = TRUE)) {
+    return("Wasser")
+  }
+  
+  # 2. Anthropogen
+  if (grepl("Abraum|Müll|Bergematerial|Erdaushub",
+            x, ignore.case = TRUE)) {
+    return("Anthropogen")
+  }
+  
+  # 3. Organisch
+  if (grepl("Torf|Braunkohle|Steinkohle",
+            x, ignore.case = TRUE)) {
+    return("Organisch")
+  }
+  
+  # 4. Kalkstein
+  if (grepl("Kalkstein|Kalksandstein",
+            x, ignore.case = TRUE)) {
+    return("Kalkstein")
+  }
+  
+  # 5. Dolomit
+  if (grepl("Dolomit|Dolomitstein",
+            x, ignore.case = TRUE)) {
+    return("Dolomit")
+  }
+  
+  # 6. Mergel
+  if (grepl("Mergel|Mergelstein",
+            x, ignore.case = TRUE)) {
+    return("Mergel")
+  }
+  
+  # 7. Evaporite
+  if (grepl("Gips|Anhydrit|Steinsalz",
+            x, ignore.case = TRUE)) {
+    return("Evaporit")
+  }
+  
+  # 8. Kristallin
+  if (grepl("Vulkanit|Metamorphit|Quarzit|Roteisenstein",
+            x, ignore.case = TRUE)) {
+    return("Kristallin")
+  }
+  
+  # 9. Feinklastisch
+  if (grepl("Tonstein|Schluffstein|Ton|Schluff",
+            x, ignore.case = TRUE) &&
+      !grepl("Sand|Kies|Schotter",
+             x, ignore.case = TRUE)) {
+    return("Feinklastisch")
+  }
+  
+  # 10. Grobklastisch
+  if (grepl("Sand|Kies|Schotter|Feuersteinschotter",
+            x, ignore.case = TRUE) &&
+      !grepl("Ton|Schluff",
+             x, ignore.case = TRUE)) {
+    return("Grobklastisch")
+  }
+  
+  # 11. Gemischt klastisch
+  if (grepl("Sand|Kies|Schotter|Ton|Schluff",
+            x, ignore.case = TRUE)) {
+    return("Gemischt klastisch")
+  }
+  
+  return("Sonstiges")
+}
+
+geo_v$Litholog_class <- vapply(geo_v$LITHOLOG_1, classify_litho, character(1))
+
+table(geo_v$Litholog_class)
+
+geo_v$Litholog_class <- as.factor(geo_v$Litholog_class)
+
+classesGeoID <- c(
+  "Wasser",
+  "Anthropogen",
+  "Organisch",
+  "Kalkstein",
+  "Dolomit",
+  "Mergel",
+  "Evaporit",
+  "Kristallin",
+  "Feinklastisch",
+  "Grobklastisch",
+  "Gemischt klastisch",
+  "Sonstiges"
+)
+
+geo_v$litho_class <- factor(
+  geo_v$Litholog_class,
+  levels = classesGeoID
+)
+
+geo_v$litho_id <- as.integer(geo_v$litho_class)
+
+levels(geo_v$Litholog_class)
+lookup <- data.frame(
+  id = seq_along(levels(geo_v$Litholog_class)),
+  class = levels(geo_v$Litholog_class)
+)
+
+lookup
+write.csv(lookup, "Daten/GK100/lithology_lookup.csv", row.names = FALSE)
+
+
+########################################
+########resample and reproject #########
+########################################
+
+#resample und reproject
+ref <- rast("Daten/DGM_indexes/slope.tif")
+
+#Boden
+bodenart <- rast("Daten/BK50/Bodenart_ID.tif")
+bodengruppe <- rast ("Daten/BK50/Bodengruppe_ID.tif")
+dic <- rast ("Daten/BK50/dic.tif")
+gw <- rast ("Daten/BK50/gw.tif")
+kf <- rast ("Daten/BK50/kf.tif")
+nfk <- rast ("Daten/BK50/nfk.tif")
+sw <- rast ("Daten/BK50/sw.tif")
+tie <- rast ("Daten/BK50/tie.tif")
+
+#Bodenfeuchte Copernicus
+bodenfeuchte <- rast("Daten/Copernicus_SMI/bodenfeuchte.tif")
+
+bodenfeuchte_a <- project(bodenfeuchte, ref)
+bodenfeuchte_a <- resample(bodenfeuchte_a, ref)
+writeRaster(bodenfeuchte_a,"Daten/predictors/bodenfeuchte.tif",overwrite=T)
+
+#Niederschlag, Sonneneinstrahlung, Dryness-Index
+dryness <- project(dryness, ref)
+dryness <- resample(dryness_a, ref)
+writeRaster(dryness_a,"Daten/predictors/dryness.tif",overwrite=T)
+
+rain <- project(rain, ref)
+rain <- resample(rain_a, ref)
+writeRaster(rain_a,"Daten/predictors/rain.tif",overwrite=T)
+
+solar <- project(solar, ref)
+solar <- resample(solar_a, ref)
+writeRaster(solar_a,"Daten/predictors/solar.tif",overwrite=T)
+
+geo <- rasterize(geo_v, ref, method = "near", field = "litho_id", filename = "Daten/predictors/geoID.tif", overwrite = TRUE)
+
+bodenart <- resample(bodenart, ref, method = "near", filename ="Daten/predictors/bodenart.tif",overwrite=T)
+
+bodengruppe <- resample(bodengruppe, ref, method = "near", filename = "Daten/predictors/bodengruppe.tif",overwrite=T)
+
+dic <- resample(dic, ref, filename ="Daten/predictors/dic.tif",overwrite=T)
+
+gw <- resample(gw, ref, filename = "Daten/predictors/gw.tif",overwrite=T)
+
+kf <- resample(kf, ref, filename = "Daten/predictors/kf.tif",overwrite=T)
+
+nfk <- resample(nfk, ref, filename = "Daten/predictors/nfk.tif",overwrite=T)
+
+sw <- resample(sw, ref, filename = "Daten/predictors/sw.tif",overwrite=T)
+
+tie <- resample(tie, ref, filename = "Daten/predictors/tie.tif",overwrite=T)
+
+####################################################
+############ Prädiktoren-Stack erstellen ###########
+####################################################
+
+#Prädiktoren laden und in einem Multibandraster übereinanderlegen
+
+#Boden
+bodenart <- rast("Daten/predictors/bodenart.tif")
+bodengruppe <- rast ("Daten/predictors/bodengruppe.tif")
+dic <- rast ("Daten/predictors/dic.tif")
+gw <- rast ("Daten/predictors/gw.tif")
+kf <- rast ("Daten/predictors/kf.tif")
+nfk <- rast ("Daten/predictors/nfk.tif")
+sw <- rast ("Daten/predictors/sw.tif")
+tie <- rast ("Daten/predictors/tie.tif")
+
+#Geologie
+geo <- rast("Daten/predictors/geoID.tif")
+
+#Bodenfeuchte Copernicus
+bodenfeuchte <- rast("Daten/predictors/bodenfeuchte.tif")
+
+#Digitales Geländemodell - Slope, Aspect und TWI
+slope <- rast("Daten/predictors/slope.tif")
+aspect <- rast("Daten/predictors/aspect.tif")
+twi <- rast("Daten/predictors/NRW_twi_10m.tif")
+
+#Wetterdaten
+dryness <- rast("Daten/predictors/dryness.tif")
+rain <- rast("Daten/predictors/rain.tif")
+solar <- rast("Daten/predictors/solar.tif")
+
+#Prädiktoren zu einem Stack machen
+predictors <- c(bodenart, bodengruppe, dic, gw, kf, nfk, sw, tie, geo, 
+                bodenfeuchte, slope, aspect, twi, dryness, rain, solar)
+names(predictors)
+
+names(predictors)[10] <- "bodenfeuchte"
+names(predictors)[13] <- "twi"
+names(predictors)[14] <- "dryness"
+names(predictors)[15] <- "rain_mean"
+names(predictors)[16] <- "solar_mean"
+
+#rausschreiben
+writeRaster(predictors,"Daten/predictors/predictors.tif",overwrite=T)
+
+
+####################################
+##### Trainingsdaten erstellen #####
+####################################
+
+#### Magerrasen Zufallspunkte #### 
+
+predictors <- rast("Daten/predictors/predictors.tif")
+
+#Magerrasen-Flächen einladen
+magerrasen_train <- st_read("Daten/training/magerrasen.gpkg")
+
+#Projektion abfragen
+st_crs(magerrasen_train)
+
+#Attribute hinzufügen
+magerrasen_train$PolyID <- 1:nrow(magerrasen_train)
+magerrasen_train$magerrasen <- "ja_magerrasen"
+
+#Zufallsstichprobe nehmen und mit Attributen verbinden
+magerrasen_train <- sf::st_make_valid(magerrasen_train)
+magerrasen_train <- sf::st_transform(magerrasen_train, 25832)
+
+Zufallsstichprobe_magerrasen <- st_sample(magerrasen_train, size = 5000,
+                                          type = "random")
+
+#In sf-Objekt konvertieren
+pts_sf2 <- st_as_sf(Zufallsstichprobe_magerrasen)
+
+#Punkte mit Attributen der Polygone verknüpfen
+Zufallsstichprobe_magerrasen <- st_join(pts_sf2, magerrasen_train)
+
+#Werte aus Prädiktorenstack extrahieren und an Zufallsstichprobe anhängen
+
+# Punkte in SpatVector umwandeln
+Zufallsstichprobe_vect <- vect(Zufallsstichprobe_magerrasen)
+
+#Nur die Spalte PolyID behalten, weil der Rest irrelevant ist
+Zufallsstichprobe_vect_ID <- Zufallsstichprobe_vect[, c("PolyID", "magerrasen")]
+
+# Rasterwerte extrahieren + Attribute der Punkte anhängen
+Zufallsstichprobe_ID_predictors <- extract(predictors, Zufallsstichprobe_vect_ID, bind = TRUE)
+
+#Wieder zu sf machen
+#Data Frame + Geometrie der Punkte kombinieren
+Zufallsstichprobe_ID_predictors_sf <- st_as_sf(Zufallsstichprobe_ID_predictors, geometry = st_geometry(Zufallsstichprobe_magerrasen))
+
+#Speichern
+st_write(Zufallsstichprobe_ID_predictors_sf,
+         "Daten/training/Zufall_ffh_predictor_sf.gpkg",  delete_layer = TRUE)
+
+
+#### PSEUDO-ABSENZ ####
+
+#Schablone, die NRW ohne die FFH-Gebiete umfasst
+absence_train <- st_read("Daten/training/false_neg_schablone.gpkg")
+
+#Projektion abfragen
+st_crs(absence_train)
+
+#Attribute hinzufügen
+absence_train$PolyID <- 1:nrow(absence_train)
+absence_train$magerrasen <- "nein_magerrasen"
+
+#Zufallsstichprobe nehmen und mit Attributen verbinden
+Zufallsstichprobe_absence <- st_sample(absence_train, size = 5000, type = "random")
+
+#In sf-Objekt konvertieren
+pts_sf2 <- st_as_sf(Zufallsstichprobe_absence)
+
+#Punkte mit Attributen der Polygone verknüpfen
+Zufallsstichprobe_absence <- st_join(pts_sf2, absence_train)
+
+# Punkte in SpatVector umwandeln
+Zufallsstichprobe_vect <- vect(Zufallsstichprobe_absence)
+
+#Nur die Spalte PolyID behalten, weil der Rest irrelevant ist
+Zufallsstichprobe_vect_ID <- Zufallsstichprobe_vect[, c("PolyID", "magerrasen")]
+
+# Rasterwerte extrahieren + Attribute der Punkte anhängen
+Zufallsstichprobe_ID_predictors_a <- extract(predictors, Zufallsstichprobe_vect_ID_a, bind = TRUE)
+
+#Wieder zu sf machen
+#Data Frame + Geometrie der Punkte kombinieren
+Zufallsstichprobe_ID_predictors_sf <- st_as_sf(Zufallsstichprobe_ID_predictors, 
+                                                 geometry = st_geometry(Zufallsstichprobe_absence))
+
+#Speichern
+st_write(Zufallsstichprobe_ID_predictors_sf,
+         "Daten/training/Zufall_absence_predictor_5000_sf.gpkg",  delete_layer = TRUE)
